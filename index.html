@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Combustion du carbone — simulation (C(s) + O₂ → CO₂)</title>
+  <style>
+    :root{ --w: 980px; }
+    body{ margin:0; font-family: Arial, sans-serif; background:#f6f6f6; color:#111; }
+    .wrap{ max-width: var(--w); margin: 14px auto; padding: 10px; }
+    .card{ background:#fff; border-radius: 12px; box-shadow: 0 6px 18px rgba(0,0,0,0.08); overflow:hidden; }
+    .header{ padding: 12px 14px; border-bottom: 1px solid rgba(0,0,0,0.08); display:flex; gap:10px; align-items:center; flex-wrap: wrap;}
+    .header h1{ font-size: 16px; margin:0; font-weight: 700; }
+    .badge{ font-size: 12px; padding: 4px 8px; border-radius: 999px; background: rgba(0,0,0,0.06); }
+    .row{ display:flex; gap: 12px; padding: 12px 14px; align-items:flex-start; flex-wrap: wrap;}
+    .left{ flex: 1 1 650px; min-width: 320px; }
+    .right{ flex: 1 1 300px; min-width: 260px; }
+    canvas{ width: 100%; height: auto; display:block; background: linear-gradient(#fafafa,#f0f0f0); }
+    .panel{ background: rgba(0,0,0,0.03); border-radius: 12px; padding: 10px; }
+    .panel h2{ margin: 0 0 8px 0; font-size: 14px; }
+    .grid{ display:grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    label{ font-size: 12px; display:block; margin-bottom: 4px; }
+    input[type="number"]{ width: 100%; padding: 8px; border-radius: 10px; border: 1px solid rgba(0,0,0,0.15); }
+    .btns{ display:flex; gap:8px; flex-wrap: wrap; margin-top: 10px; }
+    button{ padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(0,0,0,0.15); background:#fff; cursor:pointer; }
+    button.primary{ background:#111; color:#fff; border-color:#111; }
+    button:disabled{ opacity:0.6; cursor:not-allowed; }
+    .note{ font-size: 12px; line-height: 1.35; color:#222; margin-top: 10px; }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .legend{ display:grid; grid-template-columns: 1fr; gap:6px; margin-top: 10px; font-size: 12px; }
+    .dot{ display:inline-block; width:10px; height:10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+    .c{ background:#222; }
+    .o{ background:#d22; }
+    .n{ background:#1e5ac8; }
+    .footer{ padding: 10px 14px; border-top: 1px solid rgba(0,0,0,0.08); font-size: 12px; color:#333; display:flex; justify-content: space-between; flex-wrap: wrap; gap:8px;}
+    .small{ opacity:0.85; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="header">
+        <h1>Combustion du carbone — simulation particulaire</h1>
+        <span class="badge">Réaction : <span class="mono">C(s) + O₂ → CO₂</span></span>
+        <span class="badge">N₂ spectateur</span>
+        <span class="badge">Carbone solide : tas au fond</span>
+      </div>
+
+      <div class="row">
+        <div class="left">
+          <canvas id="sim" width="940" height="560" aria-label="Simulation"></canvas>
+        </div>
+
+        <div class="right">
+          <div class="panel">
+            <h2>Paramètres</h2>
+            <div class="grid">
+              <div>
+                <label for="c0">Carbone solide (sites)</label>
+                <input id="c0" type="number" min="1" max="120" step="1" value="10" />
+              </div>
+              <div>
+                <label for="o20">Dioxygène (molécules)</label>
+                <input id="o20" type="number" min="0" max="200" step="1" value="15" />
+              </div>
+              <div>
+                <label for="n20">Diazote (spectateur)</label>
+                <input id="n20" type="number" min="0" max="200" step="1" value="20" />
+              </div>
+              <div>
+                <label for="temp">Température (°C, effet sur la vitesse)</label>
+                <input id="temp" type="number" min="0" max="300" step="10" value="20" />
+              </div>
+            </div>
+
+            <div class="btns">
+              <button class="primary" id="start">Démarrer</button>
+              <button id="pause" disabled>Pause</button>
+              <button id="reset">Réinitialiser</button>
+              <button id="toggleLabels">Afficher les symboles</button>
+            </div>
+
+            <div class="legend">
+              <div><span class="dot c"></span>Carbone solide (immobile)</div>
+              <div><span class="dot o"></span>O₂ (gaz) ; oxygènes dans CO₂</div>
+              <div><span class="dot n"></span>N₂ : spectateur</div>
+              <div>CO₂ (produit) : modèle compact O–C–O</div>
+            </div>
+
+            <div class="note" id="status">
+              Modèles compacts <b>sans symboles</b> par défaut. Clique sur <b>Démarrer</b>.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <div class="small">But : visualiser « spectatrice », « limitant », « en excès ».</div>
+        <div class="small">HTML + JS autonomes (GitHub Pages / iframe ÉLÉA).</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
