@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Combustion du carbone — simulation (C + O₂ → CO₂)</title>
+  <title>Combustion du carbone — simulation (C(s) + O₂ → CO₂)</title>
   <style>
-    :root{ --w: 920px; }
+    :root{ --w: 980px; }
     body{ margin:0; font-family: Arial, sans-serif; background:#f6f6f6; color:#111; }
     .wrap{ max-width: var(--w); margin: 14px auto; padding: 10px; }
     .card{ background:#fff; border-radius: 12px; box-shadow: 0 6px 18px rgba(0,0,0,0.08); overflow:hidden; }
@@ -13,8 +13,8 @@
     .header h1{ font-size: 16px; margin:0; font-weight: 700; }
     .badge{ font-size: 12px; padding: 4px 8px; border-radius: 999px; background: rgba(0,0,0,0.06); }
     .row{ display:flex; gap: 12px; padding: 12px 14px; align-items:flex-start; flex-wrap: wrap;}
-    .left{ flex: 1 1 620px; min-width: 320px; }
-    .right{ flex: 1 1 240px; min-width: 240px; }
+    .left{ flex: 1 1 650px; min-width: 320px; }
+    .right{ flex: 1 1 280px; min-width: 260px; }
     canvas{ width: 100%; height: auto; display:block; background: linear-gradient(#fafafa,#f0f0f0); }
     .panel{ background: rgba(0,0,0,0.03); border-radius: 12px; padding: 10px; }
     .panel h2{ margin: 0 0 8px 0; font-size: 14px; }
@@ -32,7 +32,6 @@
     .c{ background:#222; }
     .o{ background:#d22; }
     .n{ background:#1e5ac8; }
-    .co2{ background:#3a7; }
     .footer{ padding: 10px 14px; border-top: 1px solid rgba(0,0,0,0.08); font-size: 12px; color:#333; display:flex; justify-content: space-between; flex-wrap: wrap; gap:8px;}
     .small{ opacity:0.85; }
   </style>
@@ -42,13 +41,14 @@
     <div class="card">
       <div class="header">
         <h1>Combustion du carbone — simulation particulaire</h1>
-        <span class="badge">Réaction : <span class="mono">C + O₂ → CO₂</span></span>
-        <span class="badge">N₂ spectateur</span>
+        <span class="badge">Réaction : <span class="mono">C(s) + O₂ → CO₂</span></span>
+        <span class="badge">N₂ spectateur (gaz)</span>
+        <span class="badge">Carbone solide : dépôt au fond</span>
       </div>
 
       <div class="row">
         <div class="left">
-          <canvas id="sim" width="900" height="540" aria-label="Simulation"></canvas>
+          <canvas id="sim" width="940" height="560" aria-label="Simulation"></canvas>
         </div>
 
         <div class="right">
@@ -56,20 +56,20 @@
             <h2>Paramètres</h2>
             <div class="grid">
               <div>
-                <label for="c0">n(C) initial (particules)</label>
-                <input id="c0" type="number" min="0" max="200" step="1" value="30" />
+                <label for="c0">Carbone solide (sites)</label>
+                <input id="c0" type="number" min="10" max="220" step="1" value="90" />
               </div>
               <div>
-                <label for="o20">n(O₂) initial (molécules)</label>
-                <input id="o20" type="number" min="0" max="200" step="1" value="18" />
+                <label for="o20">Dioxygène O₂ (molécules)</label>
+                <input id="o20" type="number" min="0" max="160" step="1" value="30" />
               </div>
               <div>
-                <label for="n20">n(N₂) (spectateur)</label>
-                <input id="n20" type="number" min="0" max="200" step="1" value="14" />
+                <label for="n20">Diazote N₂ (spectateur)</label>
+                <input id="n20" type="number" min="0" max="160" step="1" value="22" />
               </div>
               <div>
                 <label for="speed">Vitesse (réactions/s)</label>
-                <input id="speed" type="number" min="0" max="20" step="0.5" value="4" />
+                <input id="speed" type="number" min="0" max="30" step="0.5" value="6" />
               </div>
             </div>
 
@@ -77,17 +77,17 @@
               <button class="primary" id="start">Démarrer</button>
               <button id="pause" disabled>Pause</button>
               <button id="reset">Réinitialiser</button>
+              <button id="toggleLabels">Afficher les symboles</button>
             </div>
 
             <div class="legend">
-              <div><span class="dot c"></span><b>C</b> (carbone)</div>
-              <div><span class="dot o"></span><b>O₂</b> (dioxygène)</div>
-              <div><span class="dot co2"></span><b>CO₂</b> (produit)</div>
-              <div><span class="dot n"></span><b>N₂</b> (spectateur)</div>
+              <div><span class="dot c"></span><b>Carbone solide</b> (immobile)</div>
+              <div><span class="dot o"></span><b>O₂</b> et <b>CO₂</b> : oxygènes <b>rouges</b></div>
+              <div><span class="dot n"></span><b>N₂</b> : spectateur</div>
             </div>
 
             <div class="note" id="status">
-              Configure les quantités puis clique sur <b>Démarrer</b>.
+              Modèle moléculaire compact (sans symboles) par défaut. Clique sur <b>Démarrer</b>.
             </div>
           </div>
         </div>
@@ -95,7 +95,7 @@
 
       <div class="footer">
         <div class="small">But : visualiser « spectatrice », « limitant », « en excès ».</div>
-        <div class="small">© Fichier autonome (HTML + JS), hébergeable sur GitHub Pages.</div>
+        <div class="small">HTML + JS autonomes (GitHub Pages / iframe ÉLÉA).</div>
       </div>
     </div>
   </div>
