@@ -1,10 +1,9 @@
 (() => {
-  // v4 — Corrections demandées :
-  // 1) C(s) : dépôt cristallin au fond, IMMOBILE dès le départ
-  // 2) O toujours ROUGE (dans O2 et dans CO2)
-  // 3) Modèles COMPACTS (space-filling) pour O2 et N2 (pas "éclatés")
-  // 4) Symboles ABSENTS par défaut + bouton pour afficher/masquer
-  // 5) Légende corrigée + ajout CO2
+  // v5 — Ajustements :
+  // 1) Légende : suppression du mot "rouges" + ajout CO2 ✅
+  // 2) C(s) : tas compact centré au bas de la scène ✅
+  // 3) Valeurs par défaut : 10 C(s) et 15 O2 ✅
+  // 4) Remplace "vitesse" par "température" : T ↑ => vitesse des gaz ↑ (effet visible) ✅
 
   const canvas = document.getElementById("sim");
   const ctx = canvas.getContext("2d");
@@ -13,7 +12,7 @@
     c0: document.getElementById("c0"),
     o20: document.getElementById("o20"),
     n20: document.getElementById("n20"),
-    speed: document.getElementById("speed"),
+    temp: document.getElementById("temp"),
     start: document.getElementById("start"),
     pause: document.getElementById("pause"),
     reset: document.getElementById("reset"),
@@ -29,39 +28,46 @@
   function rnd(a,b){ return a + Math.random()*(b-a); }
   function dist2(ax,ay,bx,by){ const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; }
 
-  // ---- style (couleurs strictes)
+  // Couleurs
   const COL_C = "#222222";
-  const COL_O = "#d22a2a";     // Oxygènes rouges partout
+  const COL_O = "#d22a2a";
   const COL_N = "#1e5ac8";
-  const COL_BOND = "rgba(0,0,0,0.22)";
+  const COL_BOND = "rgba(0,0,0,0.20)";
 
-  // tailles "compactes"
-  const R_ATOM = 10;           // rayon des sphères de gaz (space-filling)
-  const D_DIATOMIC = 7;        // séparation faible -> aspect compact (chevauchement)
+  // Tailles (modèles compacts)
+  const R_ATOM = 10;
+  const D_DIATOMIC = 7;
 
-  // ---- état
+  // Etat
   let running = false;
   let paused = false;
-  let showLabels = false;      // IMPORTANT : symboles cachés par défaut
+  let showLabels = false;
 
-  // gaz : O2, N2, CO2
-  let gas = [];
-  // solide : sites C fixes (x,y,alive)
-  let solidC = [];
+  let gas = [];     // O2, N2, CO2
+  let solidC = [];  // sites fixes
 
-  // comptages
   let nC = 0, nO2 = 0, nN2 = 0, nCO2 = 0;
 
-  // vitesse
+  // Pour la "fréquence" de réaction : liée à la température (uniquement pour rendre l'effet plausible)
   let reactionAccumulator = 0;
 
   function setStatus(html){ ui.status.innerHTML = html; }
 
+  function tempToSpeedScale(tempC){
+    // échelle simple : à 0°C -> ~0.8 ; à 200°C -> ~2.2
+    return 0.8 + clamp(tempC, 0, 300) / 140;
+  }
+
+  function tempToReactionScale(tempC){
+    // plus chaud -> plus de tentatives de réaction par seconde (sans être délirant)
+    return 0.8 + clamp(tempC, 0, 300) / 120;
+  }
+
   function makeGas(kind){
     return {
-      kind, // "O2" | "N2" | "CO2"
+      kind,
       x: rnd(pad, W-pad),
-      y: rnd(topHUD + pad, H - pad - 150),
+      y: rnd(topHUD + pad, H - pad - 170),
       vx: rnd(-0.9, 0.9),
       vy: rnd(-0.7, 0.7),
       a: rnd(0, Math.PI*2),
@@ -74,28 +80,51 @@
     for (let i=0;i<n;i++) gas.push(makeGas(kind));
   }
 
-  // Dépôt cristallin : empilement hexagonal bas de page
-  function buildSolidC(nSites){
+  // Tas compact : empilement hexagonal mais sur une largeur limitée, centré
+  function buildSolidPile(nSites){
     solidC = [];
     const r = 10;
-    const dx = 2.05 * r;
-    const dy = 1.78 * r;
+    const dx = 2.02 * r;
+    const dy = 1.74 * r;
     const floorY = H - pad - r;
-    const maxRows = 9;
+
+    // largeur du tas : on la déduit de nSites (petit tas => étroit et haut)
+    const cols = Math.max(2, Math.min(9, Math.ceil(Math.sqrt(nSites) + 1)));
+    const maxRows = 14;
+
+    const pileWidth = (cols - 1) * dx + 2*r;
+    const x0 = (W - pileWidth) / 2 + r;
 
     let placed = 0;
-    for (let row=0; row<maxRows && placed<nSites; row++){
-      const y = floorY - row*dy;
-      const offset = (row%2===0) ? 0 : dx/2;
-      for (let col=0; col<999 && placed<nSites; col++){
-        const x = pad + r + offset + col*dx;
-        if (x > W - pad - r) break;
+    for (let row = 0; row < maxRows && placed < nSites; row++){
+      const y = floorY - row * dy;
+      const offset = (row % 2 === 0) ? 0 : dx / 2;
 
-        // jitter très faible (garde l'aspect cristallin)
-        const jx = rnd(-0.35, 0.35);
-        const jy = rnd(-0.35, 0.35);
+      // nombre de colonnes par rangée : on fait une "pyramide" (plus large en bas, plus étroite en haut)
+      const rowCols = Math.max(1, Math.min(cols, cols - Math.floor(row / 2)));
+      const rowWidth = (rowCols - 1) * dx + 2*r;
+      const rowX0 = (W - rowWidth) / 2 + r;
 
+      for (let col = 0; col < rowCols && placed < nSites; col++){
+        const x = rowX0 + offset + col * dx;
+        // jitter minime pour éviter l'effet "ligne parfaite"
+        const jx = rnd(-0.25, 0.25);
+        const jy = rnd(-0.25, 0.25);
         solidC.push({ x: x + jx, y: y + jy, r, alive: true });
+        placed++;
+      }
+    }
+
+    // fallback (si nSites > capacité)
+    while (placed < nSites){
+      const x = rnd(W/2 - 70, W/2 + 70);
+      const y = rnd(floorY - 9*dy, floorY);
+      let ok = true;
+      for (const s of solidC){
+        if (dist2(x,y,s.x,s.y) < (1.6*r)*(1.6*r)){ ok = false; break; }
+      }
+      if (ok){
+        solidC.push({ x, y, r, alive:true });
         placed++;
       }
     }
@@ -114,11 +143,11 @@
     reactionAccumulator = 0;
 
     gas = [];
-    const c0 = clamp(parseInt(ui.c0.value||"0",10), 10, 260);
+    const c0 = clamp(parseInt(ui.c0.value||"0",10), 1, 120);
     const o20 = clamp(parseInt(ui.o20.value||"0",10), 0, 200);
     const n20 = clamp(parseInt(ui.n20.value||"0",10), 0, 200);
 
-    buildSolidC(c0);     // C(s) IMMOBILE dès le départ
+    buildSolidPile(c0);
     spawnGas("O2", o20);
     spawnGas("N2", n20);
     recount();
@@ -127,7 +156,6 @@
     ui.start.disabled = false;
     ui.pause.textContent = "Pause";
 
-    // IMPORTANT : on reste en "sans symboles" à la réinit
     showLabels = false;
     ui.toggleLabels.textContent = "Afficher les symboles";
 
@@ -140,7 +168,6 @@
     setStatus(`Modèles compacts <b>sans symboles</b> par défaut.<br>${diag}`);
   }
 
-  // ---- physique gaz
   function bounce(p){
     const minX = pad, maxX = W-pad;
     const minY = topHUD+pad, maxY = H-pad;
@@ -151,13 +178,18 @@
   }
 
   function stepGas(dt){
+    const tempC = clamp(parseFloat(ui.temp.value||"20"), 0, 300);
+    const s = tempToSpeedScale(tempC);
+
     for (const p of gas){
       if (!p.alive) continue;
-      p.x += p.vx;
-      p.y += p.vy;
-      p.a += p.va;
+      p.x += p.vx * s;
+      p.y += p.vy * s;
+      p.a += p.va * s * 0.9;
       bounce(p);
-      if (p.kind === "CO2") p.vy -= 0.02; // légère remontée
+
+      // convection légère sur CO2
+      if (p.kind === "CO2") p.vy -= 0.010 * s;
     }
   }
 
@@ -171,7 +203,6 @@
     return { best, bestd };
   }
 
-  // Réaction à la surface : O2 proche d'un site C(s) vivant
   function tryReactOne(){
     const o2s = gas.filter(p=>p.alive && p.kind==="O2");
     if (o2s.length === 0) return false;
@@ -223,11 +254,9 @@
   }
 
   function drawSolid(){
-    // sol
     ctx.fillStyle = "rgba(0,0,0,0.06)";
     ctx.fillRect(0, H-pad-12, W, 24);
 
-    // dépôt cristallin
     for (const s of solidC){
       if (!s.alive) continue;
       sphere(s.x, s.y, 10, "rgba(30,30,30,0.86)");
@@ -235,35 +264,24 @@
     }
   }
 
-  // modèles compacts : deux sphères très proches (chevauchement)
   function drawDiatomic(p, color, letter){
     const dx = Math.cos(p.a) * D_DIATOMIC;
     const dy = Math.sin(p.a) * D_DIATOMIC;
-
-    // petite liaison discrète (optionnelle)
     bond(p.x-dx, p.y-dy, p.x+dx, p.y+dy);
-
     sphere(p.x-dx, p.y-dy, R_ATOM, color);
     sphere(p.x+dx, p.y+dy, R_ATOM, color);
-
     label(letter, p.x-dx, p.y-dy, 11);
     label(letter, p.x+dx, p.y+dy, 11);
   }
 
   function drawCO2(p){
-    // modèle compact O–C–O
     const dx = Math.cos(p.a) * (D_DIATOMIC + 2);
     const dy = Math.sin(p.a) * (D_DIATOMIC + 2);
-
     bond(p.x-dx, p.y-dy, p.x, p.y);
     bond(p.x, p.y, p.x+dx, p.y+dy);
-
-    // O rouges
     sphere(p.x-dx, p.y-dy, R_ATOM, COL_O);
     sphere(p.x+dx, p.y+dy, R_ATOM, COL_O);
-    // C sombre au centre
     sphere(p.x, p.y, R_ATOM-1, COL_C);
-
     label("O", p.x-dx, p.y-dy, 11);
     label("O", p.x+dx, p.y+dy, 11);
     label("C", p.x, p.y, 11);
@@ -290,7 +308,7 @@
     else if (nO2 === 0 && nC > 0) concl = "Réaction terminée : O₂ limitant ; carbone en excès (solide restant).";
     else if (nC === 0 && nO2 > 0) concl = "Réaction terminée : carbone limitant ; O₂ en excès.";
     else if (nC === 0 && nO2 === 0) concl = "Réaction terminée : proportions stœchiométriques.";
-    else concl = "En cours : O₂ réagit au contact du dépôt ; N₂ spectateur.";
+    else concl = "En cours : O₂ réagit au contact du tas ; N₂ spectateur.";
 
     ctx.fillText(concl, 14, 40);
 
@@ -305,22 +323,17 @@
     drawHUD();
     drawSolid();
 
-    // gaz : N2 derrière, puis O2, puis CO2
     for (const p of gas){
-      if (!p.alive) continue;
-      if (p.kind === "N2") drawDiatomic(p, COL_N, "N");
+      if (p.alive && p.kind==="N2") drawDiatomic(p, COL_N, "N");
     }
     for (const p of gas){
-      if (!p.alive) continue;
-      if (p.kind === "O2") drawDiatomic(p, COL_O, "O"); // O2 rouge
+      if (p.alive && p.kind==="O2") drawDiatomic(p, COL_O, "O");
     }
     for (const p of gas){
-      if (!p.alive) continue;
-      if (p.kind === "CO2") drawCO2(p);                  // O rouges dans CO2
+      if (p.alive && p.kind==="CO2") drawCO2(p);
     }
   }
 
-  // ---- boucle
   let last = performance.now();
   function loop(now){
     const dt = Math.min(0.05, (now-last)/1000);
@@ -329,11 +342,13 @@
     if (running && !paused){
       stepGas(dt);
 
-      const speed = clamp(parseFloat(ui.speed.value||"0"), 0, 40);
-      reactionAccumulator += speed * dt;
+      const tempC = clamp(parseFloat(ui.temp.value||"20"), 0, 300);
+      const rScale = tempToReactionScale(tempC);
+      // tentatives de réaction par seconde ~ 8 à 10 à température ambiante ; plus si T augmente
+      reactionAccumulator += (8 * rScale) * dt;
 
       let guard = 0;
-      while (reactionAccumulator >= 1 && guard < 35){
+      while (reactionAccumulator >= 1 && guard < 40){
         guard++;
         tryReactOne();
         reactionAccumulator -= 1;
@@ -345,13 +360,13 @@
     requestAnimationFrame(loop);
   }
 
-  // ---- UI
+  // UI
   ui.start.addEventListener("click", () => {
     running = true;
     paused = false;
     ui.pause.disabled = false;
     ui.start.disabled = true;
-    setStatus("Simulation en cours : le carbone solide est immobile ; O₂ et N₂ sont gazeux.");
+    setStatus("Simulation en cours : augmente la température pour accélérer le déplacement des gaz.");
   });
 
   ui.pause.addEventListener("click", () => {
@@ -366,9 +381,7 @@
   ui.toggleLabels.addEventListener("click", () => {
     showLabels = !showLabels;
     ui.toggleLabels.textContent = showLabels ? "Masquer les symboles" : "Afficher les symboles";
-    setStatus(showLabels
-      ? "Symboles affichés (C, O, N)."
-      : "Modèles compacts sans symboles.");
+    setStatus(showLabels ? "Symboles affichés." : "Modèles compacts sans symboles.");
   });
 
   // init
